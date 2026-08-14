@@ -1,0 +1,293 @@
+# benchmarks/aa-bundler-performance.yml
+#
+# OpenChainBench spec: ERC-4337 bundler & paymaster performance
+# Scope: UserOperation RPC latency, acceptance, inclusion, confirmation,
+#        gas-estimation accuracy, and paymaster sponsorship outcomes.
+#
+# Chains: Ethereum, Base, Arbitrum, Optimism, Polygon (extendable)
+# Standard: ERC-4337 / EntryPoint v0.6 and v0.7, identified per sample.
+# License: MIT (code), CC-BY-4.0 (reports)
+
+slug: aa-bundler-performance
+title: "ERC-4337 Bundler & Paymaster Performance"
+category: account_abstraction
+chains:
+  - ethereum
+  - base
+  - arbitrum
+  - optimism
+  - polygon
+status: draft
+
+description: |
+  Continuous, reproducible performance and reliability benchmarks for
+  ERC-4337 bundlers and paymasters. Measures the full UserOperation
+  lifecycle: gas-estimation response, validation/acceptance, mempool-to-
+  inclusion latency, confirmation time, fee-estimate accuracy, and
+  sponsorship success. Requests use consistent EntryPoint versions,
+  smart-account factories, token fixtures, calldata, gas controls,
+  deadlines, and source regions for fair comparison.
+
+entry_points:
+  - version: "0.6"
+    address: "provider-configured"
+  - version: "0.7"
+    address: "provider-configured"
+
+metrics:
+  - name: aa_bundler_rpc_latency_seconds
+    type: histogram
+    description: |
+      JSON-RPC response latency for ERC-4337 bundler methods, including
+      eth_supportedEntryPoints, eth_estimateUserOperationGas,
+      eth_sendUserOperation, and eth_getUserOperationReceipt.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - rpc_method
+      - outcome
+
+  - name: aa_user_operation_acceptance_latency_seconds
+    type: histogram
+    description: |
+      Time from eth_sendUserOperation request initiation until the bundler
+      returns a valid UserOperation hash, meaning the operation was accepted
+      for processing by that bundler.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - account_type
+      - sponsorship_mode
+      - outcome
+      - failure_reason
+
+  - name: aa_user_operation_inclusion_latency_seconds
+    type: histogram
+    description: |
+      Time from successful UserOperation submission to inclusion in an
+      EntryPoint handleOps transaction on the target chain.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - account_type
+      - sponsorship_mode
+      - outcome
+      - failure_reason
+
+  - name: aa_user_operation_confirmation_latency_seconds
+    type: histogram
+    description: |
+      Time from UserOperation submission until its containing transaction
+      reaches the benchmark's configured confirmation threshold.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - confirmations
+      - outcome
+
+  - name: aa_user_operation_success_ratio
+    type: gauge
+    description: |
+      Rolling fraction of submitted UserOperations that execute successfully
+      on-chain and emit a successful UserOperationEvent.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - account_type
+      - sponsorship_mode
+      - window_seconds
+
+  - name: aa_paymaster_sponsorship_success_ratio
+    type: gauge
+    description: |
+      Rolling fraction of valid sponsored UserOperations that receive valid
+      paymaster data and execute successfully without requiring user-funded
+      native-token gas payment.
+    labels:
+      - provider
+      - paymaster
+      - chain
+      - region
+      - entry_point_version
+      - window_seconds
+
+  - name: aa_user_operation_gas_estimate_error_bps
+    type: histogram
+    description: |
+      Difference between bundler-estimated and actual gas cost in basis
+      points for successful UserOperations. Positive values indicate an
+      estimate above actual observed cost.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - gas_component
+      - account_type
+
+  - name: aa_user_operation_rejection_total
+    type: counter
+    description: |
+      Total rejected UserOperations, grouped by normalized reason. Raw
+      provider errors are retained as evidence but are not used directly
+      as high-cardinality Prometheus labels.
+    labels:
+      - provider
+      - chain
+      - region
+      - entry_point_version
+      - rejection_class
+
+  - name: aa_bundler_supported_entry_points
+    type: gauge
+    description: |
+      Number of EntryPoint contracts reported as supported through
+      eth_supportedEntryPoints.
+    labels:
+      - provider
+      - chain
+      - region
+
+providers:
+  - id: pimlico
+    name: "Pimlico"
+    type: bundler_and_paymaster
+    chains:
+      - ethereum
+      - base
+      - arbitrum
+      - optimism
+      - polygon
+    api_type: json_rpc
+    auth_required: true
+
+  - id: alchemy
+    name: "Alchemy Account Kit"
+    type: bundler_and_paymaster
+    chains:
+      - ethereum
+      - base
+      - arbitrum
+      - optimism
+      - polygon
+    api_type: json_rpc
+    auth_required: true
+
+  - id: stackup
+    name: "Stackup"
+    type: bundler_and_paymaster
+    chains:
+      - ethereum
+      - base
+      - arbitrum
+      - optimism
+      - polygon
+    api_type: json_rpc
+    auth_required: true
+
+  - id: candide
+    name: "Candide"
+    type: bundler_and_paymaster
+    chains:
+      - ethereum
+      - base
+      - arbitrum
+      - optimism
+      - polygon
+    api_type: json_rpc
+    auth_required: true
+
+  - id: custom-bundler
+    name: "Custom Bundler"
+    type: bundler
+    chains:
+      - ethereum
+      - base
+      - arbitrum
+    api_type: json_rpc
+    auth_required: true
+
+test_vectors:
+  - id: transfer-native
+    account_type: simple_account
+    description: "Transfer a small fixed native-token amount to a deterministic sink address."
+    sponsorship_mode: self_funded
+
+  - id: transfer-erc20
+    account_type: simple_account
+    description: "Transfer a small fixed ERC-20 amount using an approved fixture token."
+    sponsorship_mode: self_funded
+
+  - id: sponsored-erc20-transfer
+    account_type: simple_account
+    description: "Transfer a small fixed ERC-20 amount with valid paymaster sponsorship."
+    sponsorship_mode: sponsored
+
+  - id: batched-transfer
+    account_type: simple_account
+    description: "Execute two deterministic transfers in one UserOperation."
+    sponsorship_mode: self_funded
+
+methodology: |
+  - Use funded, non-custodial benchmark smart accounts controlled solely by
+    the harness. Never use customer accounts, customer UserOperations, or
+    production application data.
+  - Execute each test vector with identical calldata, token contract,
+    amount, max fee fields, smart-account implementation, EntryPoint
+    version, deadline, and source region for each provider on a chain.
+  - Call eth_supportedEntryPoints before testing and record the supported
+    EntryPoint versions. Do not compare providers across incompatible
+    EntryPoint versions without a clear segmentation label.
+  - Call eth_estimateUserOperationGas, record response time and returned
+    gas fields, then construct and submit the UserOperation through
+    eth_sendUserOperation.
+  - Measure acceptance latency through the returned UserOperation hash;
+    measure inclusion through eth_getUserOperationReceipt plus on-chain
+    EntryPoint event verification; measure confirmation from the inclusion
+    transaction reaching the configured confirmation threshold.
+  - Classify rejection failures into: malformed_request, unsupported_entry_point,
+    validation_failed, invalid_signature, insufficient_prefund,
+    paymaster_rejected, rate_limited, timeout, upstream_error, and other.
+  - Calculate gas-estimate error per gas component:
+    ((estimated_gas - actual_gas) / actual_gas) * 10000.
+  - Exclude test-vector failures caused by harness infrastructure,
+    fixture-account depletion, chain outages, or known reorg windows.
+    Preserve these samples separately with an exclusion reason.
+  - Publish p50, p90, p95, p99, maximum, success ratio, sponsorship
+    ratio, and normalized rejection breakdowns. Do not publish averages
+    as the principal performance metric.
+  - Run low-value state-changing vectors at a rate compatible with
+    provider terms, applicable law, chain congestion, and pre-funded
+    test-account balances. Quote-only and invalid-vector tests must be
+    separately labeled and never mixed with fulfillment metrics.
+
+retention:
+  raw_samples_ttl_days: 7
+  aggregated_metrics_ttl_days: 90
+  evidence_tx_hash_ttl_days: 90
+
+tags:
+  - account_abstraction
+  - erc4337
+  - bundler
+  - paymaster
+  - user_operation
+  - smart_accounts
+  - latency
+  - reliability
+  - gas
+  - ethereum
+  - base
+  - arbitrum
+  - optimism
+  - polygon
