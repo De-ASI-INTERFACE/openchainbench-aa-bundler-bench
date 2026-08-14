@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,15 @@ jobs:
         run: go vet ./...
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v -o bin/aa-bundler-performance ./...
 
       - name: Test
         run: go test -v ./...
+
+      - name: Verify binary
+        run: |
+          if [ ! -f bin/aa-bundler-performance ]; then
+            echo "Binary not generated"
+            exit 1
+          fi
+          file bin/aa-bundler-performance
